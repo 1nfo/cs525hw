@@ -9,7 +9,7 @@ import java.util.concurrent.SynchronousQueue;
  */
 public class GenerateFiles {
     public static void main(String[] args) throws IOException {
-        execute("dataset1", "dataset2");
+        execute("Customers", "Transactions");
     }
 
     public static void execute(String path1, String path2) throws IOException {
