@@ -15,8 +15,8 @@ public class GenerateFiles {
     public static void execute(String path1, String path2) throws IOException {
         String sep = ",";
         Random r = new Random();
-        int cNum = 5000;
-        int tNum = 500000;
+        int cNum = 50000;
+        int tNum = 5000000;
 
         // dataset 1
         FileWriter fstream = new FileWriter(path1);
