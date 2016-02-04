@@ -72,7 +72,7 @@ public class TransactionSummary {
             StringTokenizer itr = new StringTokenizer(value.toString());
             while (itr.hasMoreTokens()) {
                 String[] tuple = itr.nextToken().split(",");
-                id.set(Integer.parseInt(tuple[0]));
+                id.set(Integer.parseInt(tuple[1]));
                 pair = new PairWritable(1, Double.parseDouble(tuple[2]));
                 context.write(id, pair);
             }
