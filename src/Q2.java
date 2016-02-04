@@ -1,43 +1,47 @@
-/**
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * <p/>
- * http://www.apache.org/licenses/LICENSE-2.0
- * <p/>
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-
 package org.apache.hadoop.hw;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.util.StringTokenizer;
-import java.util.ArrayList;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.*;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.util.StringTokenizer;
 
-public class TransactionSummary {
+
+public class Q2 {
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        if (args.length != 2) {
+            System.err.println("Usage: Q2 <HDFS input file> <HDFS output file>");
+            System.exit(2);
+        }
+        Job job = new Job(conf, "Transaction Summary");
+        job.setJarByClass(Q2.class);
+        job.setMapperClass(TokenizerMapper.class);
+        job.setCombinerClass(IntSumReducer.class);
+        job.setReducerClass(IntSumReducer.class);
+        job.setOutputKeyClass(IntWritable.class);
+        job.setNumReduceTasks(4);
+        job.setOutputValueClass(PairWritable.class);
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+
     public static class PairWritable implements Writable {
         int count;
         double sum;
 
-        public PairWritable(){}
-
+        public PairWritable(){}//can not be left out
         public PairWritable(int count, double sum) {
             this.count = count;
             this.sum = sum;
@@ -61,8 +65,7 @@ public class TransactionSummary {
         }
     }
 
-    public static class TokenizerMapper
-            extends Mapper<Object, Text, IntWritable, PairWritable> {
+    public static class TokenizerMapper extends Mapper<Object, Text, IntWritable, PairWritable> {
 
         private IntWritable id = new IntWritable();
         private PairWritable pair;
@@ -79,9 +82,7 @@ public class TransactionSummary {
         }
     }
 
-    public static class IntSumReducer
-            extends Reducer<IntWritable, PairWritable, IntWritable, PairWritable> {
-
+    public static class IntSumReducer extends Reducer<IntWritable, PairWritable, IntWritable, PairWritable> {
         private PairWritable result;
 
         public void reduce(IntWritable key, Iterable<PairWritable> values,
@@ -94,24 +95,5 @@ public class TransactionSummary {
             result = new PairWritable(count, sum);
             context.write(key, result);
         }
-    }
-
-    public static void main(String[] args) throws Exception {
-        Configuration conf = new Configuration();
-        if (args.length != 2) {
-            System.err.println("Usage: TransactionSummary <HDFS input file> <HDFS output file>");
-            System.exit(2);
-        }
-        Job job = new Job(conf, "Transaction Summary");
-        job.setJarByClass(TransactionSummary.class);
-        job.setMapperClass(TokenizerMapper.class);
-        job.setCombinerClass(IntSumReducer.class);
-        job.setReducerClass(IntSumReducer.class);
-        job.setOutputKeyClass(IntWritable.class);
-        job.setNumReduceTasks(4);
-        job.setOutputValueClass(PairWritable.class);
-        FileInputFormat.addInputPath(job, new Path(args[0]));
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
-        System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }
