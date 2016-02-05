@@ -21,7 +21,7 @@ public class Q3 {
             System.err.println("Usage: Q3 <HDFS Customers> <HDFS Transactions> <HDFS output file>");
             System.exit(2);
         }
-        Job job = new Job(conf, "Q3 two tables");
+        Job job = new Job(conf, "join (Q3) two tables");
         job.setJarByClass(Q3.class);
         //Can't set combiner
         //job.setCombinerClass(JoinReducer.class);
