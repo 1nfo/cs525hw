@@ -36,4 +36,5 @@ One tricky part is that you can not set up the combiner.
 Since this query requires two different keys for join part and grouping part, two works can not be completed with reducing stage.
 So alternative way is to replicate one smaller table (***Customers***) for each mapper. We loaded smaller table from local file system into a hash table, then do the map join and generate the pair whose key is ***CountryCode***.
 
-##### 3.5 _______
+##### 3.5 DistributedCache
+In mapper part, we used DistributedCache library to read the Customers information into mapper using setup function. Then join the customer and transaction using the key of custID. Next write the key is custName, value is the transID. In reducer part, we aggregate the transaction number for every customer. Then we override the cleanup function in reducer, after comparation the transaction number for every customer then get the customers who have the least transaction number.
