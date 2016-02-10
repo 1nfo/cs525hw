@@ -59,7 +59,7 @@ public class Query5  extends Configured implements Tool {
             try {
                 brReader = new BufferedReader(new FileReader(filePath.toString()));
                 while ((strLineRead = brReader.readLine()) != null){
-                    String[] custArray = strLineRead.split(",");
+                    String[] custArray = strLineRead.split(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
                     CustMap.put(custArray[0].trim(), custArray[1].trim()); //key: ID, value: Name
                 }
             } catch (FileNotFoundException e){
@@ -78,7 +78,7 @@ public class Query5  extends Configured implements Tool {
                 throws IOException, InterruptedException {
 
             if (value.toString().length() > 0){
-                String[] trans = value.toString().split(",");
+                String[] trans = value.toString().split(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
 
                 try {
                     custName = CustMap.get(trans[1].trim());
