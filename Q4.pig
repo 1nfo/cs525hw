@@ -1,0 +1,11 @@
+tra = LOAD 'input/Transactions' USING PigStorage(',') as (tid:int,cid:int,total:float,item:int,desc:chararray);
+cus = LOAD 'input/Customers' USING PigStorage(',') as (cid:int,name:chararray,age:int,code:int,salary:float);
+grp = GROUP tra by cid;
+sm = FOREACH grp GENERATE $0 as id, COUNT(tra.tid) as count;
+joined = JOIN cus BY cid, sm by id;
+gp2 = GROUP joined BY count;
+ord = ORDER gp2 BY $0; 
+res = LIMIT ord 1;
+flt = FOREACH res GENERATE flatten($1);
+res2 = FOREACH flt GENERATE name, count;
+STORE res2 INTO 'out/pig4' USING PigStorage(',');
