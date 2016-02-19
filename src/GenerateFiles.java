@@ -29,7 +29,7 @@ public class GenerateFiles {
             // age
             line += sep + Integer.toString(r.nextInt(61) + 10);
             // country
-            line += sep + Integer.toString(r.nextInt(11));
+            line += sep + Integer.toString(r.nextInt(10)+1);
             // salary
             line += sep + Float.toString(r.nextFloat() * 9900 + 100);
             out.write(line);
@@ -67,13 +67,13 @@ public class GenerateFiles {
             if (i == 0) tmp -= 32;
             res += (char) tmp;
         }
-        res += ",";
+        res += " ";
         for (int i = sep; i < size_minues_ten + 10; i++) {
             int tmp = (r.nextInt(26) + 97);
             if (i == sep) tmp -= 32;
             res += (char) tmp;
         }
-        return "\"" + res + "\"";
+        return res;
     }
 
     public static String generateString(int size_minues_twenty) {
