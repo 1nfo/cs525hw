@@ -8,8 +8,8 @@ the command line:
 >    -file Customers -file Q5reducer.py -file Q5mapper.py
 
 ### Query 6
-unsorted plot:
+##### unsorted plot:  
 ![](country.jpeg)
 
-sorted plot
+##### sorted plot:  
 ![](counry_sorted.jpeg)
