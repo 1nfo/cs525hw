@@ -1,0 +1,121 @@
+CUSTS = LOAD '/user/hadoop/data/Customers' USING PigStorage(',') AS (custID:INT, custName:CHARARRAY, age:INT, countryCode:INT, salary:FLOAT);
+TRANS = LOAD '/user/hadoop/data/Transactions' USING PigStorage(',') AS (transID:INT, custID:INT, transTotal:FLOAT, transNumItems:INT, transDesc:CHARARRAY);
+
+# Qeury1
+Q1_gp = GROUP TRANS BY custID;
+DESCRIBE Q1_gp;
+Q1 = FOREACH Q1_gp GENERATE group, COUNT(TRANS.transID), SUM(TRANS.transTotal);
+STORE Q1 INTO '/user/hadoop/output/project2/q1';
+
+# Query2
+Q2_join = JOIN TRANS BY custID, CUSTS BY custID;
+Q2_group = GROUP Q2_join BY CUSTS::custID;
+Q2 = FOREACH Q2_group GENERATE group, Q2_join.CUSTS::custName, Q2_join.CUSTS::salary, COUNT(Q2_join.TRANS::transID), SUM(Q2_join.TRANS::transTotal), MIN(Q2_join.TRANS::transNumItems);
+STORE Q2 INTO '/user/hadoop/output/project2/q2';
+
+# Query3
+Q3_join = JOIN TRANS BY custID, CUSTS BY custID;
+Q3_group = GROUP Q3_join BY CUSTS::countryCode;
+Q3 = FOREACH Q3_group GENERATE group, COUNT(Q3_join.CUSTS::custID), MIN(Q3_join.TRANS::transTotal), MAX(Q3_join.TRANS::transTotal);
+STORE Q3 INTO '/user/hadoop/output/project2/q3';
+
+# Query4
+Q4_join = JOIN TRANS BY custID, CUSTS BY custID;
+Q4_group = GROUP Q4_join BY CUSTS::custID;
+Q41 = FOREACH Q4_group GENERATE Q4_join.CUSTS::custName, COUNT(Q4_join.TRANS::transID) AS transNum;
+Q42 = ORDER Q41 BY transNum;
+Q43 = LIMIT Q42 1;
+STORE Q43 INTO '/user/hadoop/output/project2/q4';
+
+# Query5
+
+# mapper.py
+#!/usr/bin/env python
+
+import sys
+
+# input comes from STDIN (standard input)
+for line in sys.stdin:
+    # remove leading and trailing whitespace
+    line = line.strip()
+    # split the line into words
+    data = line.split(',')
+    if data[3] == str(5): #countryCode == 5
+        print '%s,%s,%s' % (data[0],data[1],data[3]) #  custID, custName,countryCode
+    
+
+# mapper1.py
+#!/usr/bin/env python
+ 
+import sys
+ 
+# input comes from STDIN (standard input)
+for line in sys.stdin:
+    try: #sometimes bad data can cause errors use this how you like to deal with lint and bad data
+        custID = "-1" #default sorted as first
+        custName = "-1" #default sorted as first
+        countryCode = "-1"
+        transID = "-1" #default sorted as first
+        transTotal = "-1"
+         
+        # remove leading and trailing whitespace
+        line = line.strip()
+         
+        splits = line.split(",")
+         
+        if len(splits) == 3: #customer data
+            custID = splits[0]
+            custName = splits[1]
+            countryCode = splits[2]
+        else: #transaction data
+            transID = splits[0]
+            custID = splits[1]
+            transTotal = splits[2]     
+        
+        print '%s,%s,%s,%s,%s' % (custID,custName,transID,transTotal,countryCode)
+    except: #errors are going to make your job fail which you may or may not want
+        pass
+
+#reducer.py
+#!/usr/bin/env python
+
+from operator import itemgetter
+import sys
+
+custID = " "
+custName = " "
+transID = " "
+countryCode = " "
+transTotal = ""
+transCount = 0
+
+# input comes from STDIN
+for line in sys.stdin:
+    line = line.strip()
+    data = line.split(',')
+
+    # this IF-switch only works because Hadoop sorts map output
+    # by key (here: word) before it is passed to the reducer
+    if data[1] != "-1":
+        if transCount > 0:
+            print '%s,%s,%s,%s' % (custID, custName, str(transCount),countryCode)
+        custName = data[1]
+        custID = data[0]
+        countryCode = data[4]
+        transCount = 0
+    elif data[0] == custID:
+        transCount += 1
+    else:
+        pass
+
+# save the last custName transactions count
+if transCount > 0:
+    print '%s,%s,%s,%s' % (custID, custName, str(transCount),countryCode)
+
+
+hadoop jar $HADOOP_HOME/contrib/streaming/hadoop-streaming-1.2.1.jar -file mapper.py -mapper mapper.py -input data/Customers -output data/project2/q5
+
+
+hadoop jar $HADOOP_HOME/contrib/streaming/hadoop-streaming-1.2.1.jar -file mapper1.py -mapper mapper1.py -file reducer.py -reducer reducer.py -input data/project2/q5 -input data/Transactions -output output/project2/q5
+
+
