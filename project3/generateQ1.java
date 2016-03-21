@@ -19,6 +19,8 @@ public class generateQ1 {
     static void execute(String name1, int size1, String name2, int size2)throws IOException{
         FileWriter fwp = new FileWriter(name1);
         BufferedWriter bwp = new BufferedWriter(fwp);
+        bwp.write("5,20");//make sure at least one point hits
+        bwp.newLine();
         for(int i=0;i<size1;i++){
             bwp.write(generateP());
             bwp.newLine();
@@ -27,6 +29,8 @@ public class generateQ1 {
 
         FileWriter fwr = new FileWriter(name2);
         BufferedWriter bwr = new BufferedWriter(fwr);
+        bwr.write("r0,1,1,5,20");//make sure at least one point hits
+        bwr.newLine();
         for(int i=0;i<size2;i++){
             bwr.write(generateR(i+1));
             bwr.newLine();
