@@ -21,7 +21,7 @@ public class Q1 {
         Job job = new Job(conf, "Q1");
         job.setJarByClass(Q1.class);
         job.setReducerClass(ReducerQ1.class);
-        job.setNumReduceTasks(4);
+        job.setNumReduceTasks(200);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
