@@ -7,21 +7,22 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-
 import java.io.IOException;
 import java.util.*;
 
 public class Q1 {
     public static void main(String[] args) throws Exception{
         Configuration conf = new Configuration();
-        if (args.length != 3) {
-            System.err.println("Usage: Q1 <HDFS P> <HDFS R> <HDFS output file>");
+        if (args.length < 3 || args.length > 4) {
+            System.err.println("Usage: Q1 <HDFS P> <HDFS R> <HDFS output file> [<x1>,<y1>,<x2>,<y2>]");
             System.exit(2);
         }
+        if (args.length == 4){conf.set("window",args[3]);}
+        else conf.set("window","");
         Job job = new Job(conf, "Q1");
         job.setJarByClass(Q1.class);
         job.setReducerClass(ReducerQ1.class);
-        job.setNumReduceTasks(200);
+        job.setNumReduceTasks(50);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
@@ -32,6 +33,15 @@ public class Q1 {
         System.exit(job.waitForCompletion(true)? 0:1);
     }
 
+    public static boolean filter(int x, int y, String window){
+        if ("".equals(window)) return true;
+        String[] s = window.split(",");
+        int x1=Integer.parseInt(s[0]);
+        int y1=Integer.parseInt(s[1]);
+        int x2=Integer.parseInt(s[2]);
+        int y2=Integer.parseInt(s[3]);
+        return x1<=x && x2>=x && y1<=y && y2>=y;
+    }
     public static class MapperP extends Mapper<Object,Text,Text,Text>{
         private int blockHeight=100,blockWidth=100;
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
@@ -40,6 +50,9 @@ public class Q1 {
                 String next = itr.nextToken();
                 String[] strs=next.split(",");
                 int x=Integer.parseInt(strs[0]),y=Integer.parseInt(strs[1]);
+
+                if (!filter(x,y,context.getConfiguration().get("window"))) return;
+
                 int blockY=(y-1)/blockHeight,blockX=(x-1)/blockWidth;
                 Text outKey = new Text(Integer.toString(blockX)+","+Integer.toString(blockY));
                 context.write(outKey,new Text(next));
@@ -56,6 +69,9 @@ public class Q1 {
                 String[] strs = next.split(",");
                 int x=Integer.parseInt(strs[1]),y=Integer.parseInt(strs[2]),
                         w=Integer.parseInt(strs[3]),h=Integer.parseInt(strs[4]);
+
+                if (!filter(x,y,context.getConfiguration().get("window"))
+                        && !filter(x+w,y+h,context.getConfiguration().get("window"))) return;
                 int blockY=(y-1)/blockHeight,blockX=(x-1)/blockWidth;
                 int blockYY=(y+h-1)/blockHeight,blockXX=(x+w-1)/blockWidth;
                 Text outKey = new Text(Integer.toString(blockX)+","+Integer.toString(blockY));
@@ -84,23 +100,6 @@ public class Q1 {
         }
     }
 
-    public static class Rtest extends Reducer<Text,Text,Text,Text>{
-        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-            List<String[]> P = new ArrayList<>(), R = new ArrayList<>();
-            for (Text value:values){
-                String[] strs = value.toString().split(",");
-                if (strs.length==2) P.add(strs);
-                else R.add(strs);
-            }
-            String[] s = key.toString().split(",");
-            for(String[] r:R){
-                for(String[] p:P){
-                    context.write(new Text(s[0]+"|"+s[1]),
-                            new Text(p[0]+","+p[1]+",r"+r[1]));
-                }
-            }
-        }
-    }
     public static class ReducerQ1 extends Reducer<Text,Text,Text,Text>{
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
             List<String[]> P = new ArrayList<>(), R = new ArrayList<>();
