@@ -1,5 +1,4 @@
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -13,7 +12,6 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
@@ -31,7 +29,6 @@ public class Q3 {
         job.setOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setInputFormatClass(TextInputFormat.class);
-        System.out.println(conf.get("seed"));
         FileInputFormat.addInputPath(job, new Path(inpath));
         FileOutputFormat.setOutputPath(job, new Path(outpath));
         if (job.waitForCompletion(true)) {
@@ -65,7 +62,7 @@ public class Q3 {
         private ArrayList<Integer> Xs = new ArrayList<>(), Ys = new ArrayList<>();
 
         public void setup(Context context) throws IOException {
-            String prev =context.getConfiguration().get("seed");
+            String prev = context.getConfiguration().get("seed");
             FSDataInputStream in = FileSystem.get(context.getConfiguration()).open(new Path(prev));
             BufferedReader bf = new BufferedReader(new InputStreamReader(in));
             while (true) {
