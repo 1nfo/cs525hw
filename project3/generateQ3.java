@@ -4,8 +4,8 @@ import java.io.IOException;
 
 public class generateQ3 {
     public static void main(String[] args) throws IOException {
-        int size = 100<<17, K = 10;
-        BufferedWriter bf = new BufferedWriter(new FileWriter("KMeans.txt"));
+        int size = 100<<17, K = 10000;
+        BufferedWriter bf = new BufferedWriter(new FileWriter("KMPoints.txt"));
         for (int i = 0; i < size;i++) {
             bf.write(generateQ1.generateP() + "\n");
         }
