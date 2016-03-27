@@ -14,4 +14,14 @@ For example, a rectangle left-down point is (1,1), with width 2 and height 3, wi
 
 Window filtering will make the mapper jump the points  out of window. Since we have assumptions above, we only need to check the left-down and right-top points of a rectangle.
 
+Command:
+>hadoop jar ./Q1.jar Q1 input/P input/R out/Q1f 1,1,1000,1000
+
 ### Q2 CustomInputFormat
+Command:
+>hadoop jar ./Q2.jar Q2 input/Json.txt out/Q2
+
+
+### Q3 KMeans
+Command:
+>hadoop jar ./Q3.jar Q3 input/KMPoints.txt input/seeds.txt out/Q3/iter out/Q3/final_index

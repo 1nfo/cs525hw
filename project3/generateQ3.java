@@ -16,5 +16,4 @@ public class generateQ3 {
         }
         bf2.close();
     }
-
 }
