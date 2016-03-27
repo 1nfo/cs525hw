@@ -13,16 +13,17 @@ import java.util.*;
 public class Q1 {
     public static void main(String[] args) throws Exception{
         Configuration conf = new Configuration();
-        if (args.length < 3 || args.length > 4) {
-            System.err.println("Usage: Q1 <HDFS P> <HDFS R> <HDFS output file> [<x1>,<y1>,<x2>,<y2>]");
+        if (args.length < 3 || args.length > 5) {
+            System.err.println("Usage: Q1 <HDFS P> <HDFS R> <HDFS output file> <x1>,<y1>,<x2>,<y2> <BLOCK_SIZE>");
             System.exit(2);
         }
-        if (args.length == 4){conf.set("window",args[3]);}
-        else conf.set("window","");
+        conf.set("window",args[3]);
+        conf.set("BLOCK_SIZE",args[4]);
+
         Job job = new Job(conf, "Q1");
         job.setJarByClass(Q1.class);
         job.setReducerClass(ReducerQ1.class);
-        job.setNumReduceTasks(50);
+        job.setNumReduceTasks(100);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
@@ -43,66 +44,123 @@ public class Q1 {
         return x1<=x && x2>=x && y1<=y && y2>=y;
     }
     public static class MapperP extends Mapper<Object,Text,Text,Text>{
-        private int blockHeight=100,blockWidth=100;
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            int BLOCK_SIZE = Integer.parseInt(context.getConfiguration().get("BLOCK_SIZE"));
             StringTokenizer itr = new StringTokenizer(value.toString());
-            while (itr.hasMoreTokens()){
-                String next = itr.nextToken();
-                String[] strs=next.split(",");
-                int x=Integer.parseInt(strs[0]),y=Integer.parseInt(strs[1]);
+            String next = itr.nextToken();
+            String[] strs=next.split(",");
+            int x=Integer.parseInt(strs[0]),y=Integer.parseInt(strs[1]);
 
-                if (!filter(x,y,context.getConfiguration().get("window"))) return;
+            if (!filter(x,y,context.getConfiguration().get("window"))) return;
 
-                int blockY=(y-1)/blockHeight,blockX=(x-1)/blockWidth;
-                Text outKey = new Text(Integer.toString(blockX)+","+Integer.toString(blockY));
-                context.write(outKey,new Text(next));
-            }
+            int blockX = (x/BLOCK_SIZE)*BLOCK_SIZE;
+            int blockY = (y/BLOCK_SIZE)*BLOCK_SIZE;
+            Text outKey = new Text(Integer.toString(blockX)+","+Integer.toString(blockY));
+            context.write(outKey,new Text(next));
         }
     }
 
     public static class MapperR extends Mapper<Object,Text,Text,Text>{
-        private int blockHeight=100, blockWidth=100, pointRange=10000;
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            int BLOCK_SIZE = Integer.parseInt(context.getConfiguration().get("BLOCK_SIZE"));
             StringTokenizer itr = new StringTokenizer(value.toString());
-            while (itr.hasMoreTokens()){
-                String next = itr.nextToken();
-                String[] strs = next.split(",");
-                int x=Integer.parseInt(strs[1]),y=Integer.parseInt(strs[2]),
-                        w=Integer.parseInt(strs[3]),h=Integer.parseInt(strs[4]);
+            ArrayList<String> blist = new ArrayList<String>();
 
-                if (!filter(x,y,context.getConfiguration().get("window"))
-                        && !filter(x+w,y+h,context.getConfiguration().get("window"))) return;
-                int blockY=(y-1)/blockHeight,blockX=(x-1)/blockWidth;
-                int blockYY=(y+h-1)/blockHeight,blockXX=(x+w-1)/blockWidth;
-                Text outKey = new Text(Integer.toString(blockX)+","+Integer.toString(blockY));
-                Text outKeyX = new Text(Integer.toString(blockXX)+","+Integer.toString(blockY));
-                Text outKeyY = new Text(Integer.toString(blockX)+","+Integer.toString(blockYY));
-                Text outKeyXY = new Text(Integer.toString(blockXX)+","+Integer.toString(blockYY));
-                context.write(outKey,new Text(next));
-                if (blockXX>blockX && blockXX<pointRange/blockWidth){
-                    Text outValue = new Text(strs[0]+","+Integer.toString((blockX+1)*blockWidth+1)+","+y+","
-                            +Integer.toString(x+w-(blockX+1)*blockWidth-1)+","+Integer.toString(h));
-                    context.write(outKeyX,outValue);
-                }
-                else if (blockYY>blockY && blockYY<pointRange/blockHeight){
-                    Text outValue = new Text(strs[0]+","+x+","+Integer.toString((blockY+1)*blockHeight+1)+","
-                            +Integer.toString(w)+","+Integer.toString(y+h-(blockY+1)*blockHeight-1));
-                    context.write(outKeyY, outValue);
-                }
-                else if (blockXX>blockX && blockXX<pointRange/blockWidth && blockYY>blockY && blockYY>pointRange/blockHeight){
-                    Text outValue = new Text(strs[0]+","+Integer.toString((blockX+1)*blockWidth+1)+","
-                            +Integer.toString((blockY+1)*blockHeight+1)+","
-                            +Integer.toString(x+w-(blockX+1)*blockWidth-1)
-                            +Integer.toString(y+h-(blockY+1)*blockHeight-1));
-                    context.write(outKeyXY, outValue);
-                }
+            String next = itr.nextToken();
+            String[] strs = next.split(",");
+            int x=Integer.parseInt(strs[1]),y=Integer.parseInt(strs[2]),
+                    w=Integer.parseInt(strs[3]),h=Integer.parseInt(strs[4]);
+            Rect rect = new Rect(strs[0],x,y, w, h);
+            String[] s = context.getConfiguration().get("window").split(",");
+            int x1=Integer.parseInt(s[0]);
+            int y1=Integer.parseInt(s[1]);
+            int x2=Integer.parseInt(s[2]);
+            int y2=Integer.parseInt(s[3]);
+            Window window = new Window(x1,y1,x2,y2);
+            if(isRectinWindow(rect,window)){
+                blist = getBlocksInRect(rect, BLOCK_SIZE);
+            }
+            for(String b:blist){
+                context.write(new Text(b), new Text(next));
             }
         }
-    }
 
+        public static boolean isRectinWindow(Rect rect, Window w){
+    /* w totally includes rect */
+            if(rect.x_lt>=w.x_lt && rect.y_lt>=w.y_lt
+                    && rect.x_rb<=w.x_rb && rect.y_rb<=w.y_rb) return true;
+    //        rect totally includes w
+            if((rect.x_lt<=w.x_lt&&rect.y_lt<=w.y_lt)
+                    && (rect.x_rb>=w.x_rb && rect.y_rb>=w.y_rb)) return true;
+    //        top left corner of rect in w
+            if((rect.x_lt>=w.x_lt&&rect.y_lt>=w.y_lt)
+                    && (rect.x_lt<=w.x_rb&&rect.y_lt<=w.y_rb)) return true;
+    //        top right corner of rect in w
+            if(rect.x_rb>=w.x_lt && rect.x_rb<=w.x_rb
+                    && rect.y_lt>=w.y_lt && rect.y_lt<=w.y_rb) return true;
+    //        bottom left corner of rect in w
+            if(rect.x_lt>=w.x_lt && rect.x_lt<=w.x_rb
+                    && rect.y_rb>=w.y_lt && rect.y_rb<=w.y_rb) return true;
+    //        bottom right corner of rect in w
+            if(rect.x_rb>=w.x_lt && rect.x_rb<=w.x_rb
+                    && rect.y_rb>=w.y_lt && rect.y_rb<=w.y_rb) return true;
+
+            return false;
+        }
+
+        public static ArrayList<String> getBlocksInRect(Rect rect, int BLOCK_SIZE){
+            ArrayList<String> list = new ArrayList<String>();
+            int bx_s = 0; //the x of left of the start block
+    //        X-Left
+            if(rect.x_lt%BLOCK_SIZE != 0){
+                if(rect.x_lt/BLOCK_SIZE > 0) bx_s = (rect.x_lt/BLOCK_SIZE)*BLOCK_SIZE;
+                else bx_s = 0; // the first column
+            }else{
+                if(rect.x_lt/BLOCK_SIZE > 0) bx_s = rect.x_lt;
+                else bx_s = 0;
+            }
+            int bx_e = 0; // the x of the right of the end block
+    //        X-Right
+            if(rect.x_rb%BLOCK_SIZE != 0){
+                if (rect.x_rb/BLOCK_SIZE > 0) bx_e = (rect.x_rb/BLOCK_SIZE)*BLOCK_SIZE;
+                else bx_e = BLOCK_SIZE; // the first row
+            }else{
+                if (rect.x_rb/BLOCK_SIZE > 0) bx_e = rect.x_rb;
+                else bx_e = BLOCK_SIZE;
+            }
+            int by_t = 0;
+    //        Y-Top // the y of the top block
+            if(rect.y_lt%BLOCK_SIZE != 0){
+                if((rect.y_lt/BLOCK_SIZE)>0) by_t = (rect.y_lt/BLOCK_SIZE)*BLOCK_SIZE;
+                else by_t = 0;
+            }else{
+                if((rect.y_lt/BLOCK_SIZE)>0) by_t = rect.y_lt;
+                else by_t = 0;
+            }
+            int by_b = 0; // the y of the bottom block
+    //        Y-Bottom
+            if(rect.y_rb%BLOCK_SIZE != 0){
+                if(rect.y_rb/BLOCK_SIZE>0) by_b = (rect.y_rb/BLOCK_SIZE)*BLOCK_SIZE;
+                else by_b = BLOCK_SIZE;
+            }else{
+                if(rect.y_rb/BLOCK_SIZE>0) by_b = rect.y_rb;
+                else by_b = BLOCK_SIZE;
+            }
+
+    //        the top left is (bx_s, by_t), the right bottom is (bx_e, by_b)
+            for(int i=0;i<((bx_e-bx_s)/BLOCK_SIZE);i++) {
+                for(int j=0;j<=((by_b-by_t)/BLOCK_SIZE);j++) {
+                    int b_x = bx_s + i*BLOCK_SIZE;
+                    int b_y = by_t + j*BLOCK_SIZE;
+                    list.add(b_x+","+b_y); //using top left point to represent this block
+                }
+            }
+            return list;
+        }
+    }
     public static class ReducerQ1 extends Reducer<Text,Text,Text,Text>{
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-            List<String[]> P = new ArrayList<>(), R = new ArrayList<>();
+            List<String[]> P = new ArrayList(), R = new ArrayList();
             for (Text value:values){
                 String[] strs = value.toString().split(",");
                 if (strs.length==2) P.add(strs);
