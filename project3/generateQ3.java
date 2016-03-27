@@ -4,7 +4,7 @@ import java.io.IOException;
 
 public class generateQ3 {
     public static void main(String[] args) throws IOException {
-        int size = 100<<17, K = 10000;
+        int size = 100<<17, K = 20;
         BufferedWriter bf = new BufferedWriter(new FileWriter("KMPoints.txt"));
         for (int i = 0; i < size;i++) {
             bf.write(generateQ1.generateP() + "\n");
@@ -16,5 +16,4 @@ public class generateQ3 {
         }
         bf2.close();
     }
-
 }

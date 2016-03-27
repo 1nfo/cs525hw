@@ -10,8 +10,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.util.Tool;
-import org.apache.hadoop.util.ToolRunner;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -19,38 +17,37 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
-public class Q3 implements Tool {
+public class Q3  {
+    private static final String flag = "/_converged";
+
     public static int configJob(String jobName, String inpath, String seed, String outpath, int step)
             throws IOException, ClassNotFoundException, InterruptedException, URISyntaxException {
         Configuration conf = new Configuration();
+        conf.set("out",outpath);
         if (step==1) DistributedCache.addCacheFile(new URI(seed), conf);
         else {
             FileStatus[] statuses = FileSystem.get(conf).listStatus(new Path(seed));
-            for(int i=0;i<statuses.length;i++){
-                String p = statuses[i].getPath().toString();
+            for (FileStatus statuse : statuses) {
+                String p = statuse.getPath().toString();
                 String[] strs = p.split("/");
-                if(strs[strs.length-1].charAt(0)!='_')
+                if (strs[strs.length - 1].charAt(0) != '_')
                     DistributedCache.addCacheFile(new URI(p), conf);
             }
         }
-        int reducerN=1;
-        if (step==-1) reducerN=0;
+        int reducerN = 1;
+        if (step==-1) reducerN=0;//last step map-only
         Job job = new Job(conf, jobName);
         job.setJarByClass(Q3.class);
         job.setMapperClass(KMeansMapper.class);
         job.setReducerClass(KMeansReducer.class);
-        //job.setCombinerClass();
+        job.setCombinerClass(Combiner.class);
         job.setNumReduceTasks(reducerN);
         job.setOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setInputFormatClass(TextInputFormat.class);
         FileInputFormat.addInputPath(job, new Path(inpath));
         FileOutputFormat.setOutputPath(job, new Path(outpath));
-        if (job.waitForCompletion(true)) {
-            if ("Y".equals(conf.get("converged"))) return 2;//converged
-            return 1;//finished but not yet converged
-        }
-        return 0;// not completed
+        return job.waitForCompletion(true)?0:1;
     }
 
     public static void main(String[] args) throws Exception {
@@ -58,17 +55,16 @@ public class Q3 implements Tool {
             System.err.println("Usage: Q3 <HDFS input points> <Local input seeds> <HDFS output centers> <HDFS out Index> ");
             System.exit(2);
         }
-        int status= ToolRunner.run(new Configuration(),new Q3(),args);
-        System.exit(status > 0 ? 0 : 1);
+        int status= run(args);
+        System.exit(status);
     }
 
-    public static double dist(double xs, int x, double ys, double y) {
+    public static double dist(double xs, double x, double ys, double y) {
         return Math.sqrt(Math.pow(xs - x, 2) + Math.pow(ys - y, 2));
     }
 
-    @Override
-    public int run(String[] args) throws Exception {
-        int i,step,status = 1, maxiter = 6;
+    public static int run(String[] args) throws Exception {
+        int i, step, status=0,maxiter=6;
         String seeds="";
         final String points = args[0], outseeds = args[2];
         String last = "";
@@ -83,23 +79,20 @@ public class Q3 implements Tool {
             }
             status = configJob(Integer.toString(i), points, seeds + last, outseeds + Integer.toString(i),step);
             last = Integer.toString(i);
-            if (status != 1) break;
+            if (status==1) return 1;
+            if (FileSystem.get(new Configuration()).exists(new Path(  //converged
+                    new Path(outseeds).getParent().toString()+flag))) break;
         }
-        configJob(Integer.toString(i), points, seeds + last, args[3], -1);
-        return 0;
+        status=configJob(Integer.toString(-1), points, outseeds + last, args[3], -1);
+        return status;
     }
-    @Override
-    public void setConf(Configuration configuration) {}
-    @Override
-    public Configuration getConf() {return null;}
 
     public static class KMeansMapper extends Mapper<Object, Text, Text, Text> {
         private ArrayList<Double> Xs = new ArrayList<>(), Ys = new ArrayList<>();
         public void setup(Context context) throws IOException {
             Path[] caches = DistributedCache.getLocalCacheFiles(context.getConfiguration());
-            for (int i=0;i<caches.length;i++) {
-                String prev =caches[i].toString();
-                BufferedReader bf = new BufferedReader(new FileReader(prev));
+            for (Path cache : caches) {
+                BufferedReader bf = new BufferedReader(new FileReader(cache.toString()));
                 while (true) {
                     String line = bf.readLine();
                     if (line == null) break;
@@ -120,26 +113,48 @@ public class Q3 implements Tool {
                     mindist = newdist;
                 }
             }
-            assert minI != -1;
-            context.write(new Text(Integer.toString(minI)), value);
+            context.write(new Text(Integer.toString(minI)+","
+                    +Double.toString(Xs.get(minI))+","+Double.toString(Ys.get(minI))), value);
         }
     }
 
     public static class KMeansReducer extends Reducer<Text, Text, Text, Text> {
-        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+        private boolean isconverge=true;
+        public void reduce(Text key, Iterable<Text> values, Context context)
+                throws IOException, InterruptedException {
             double x = 0, y = 0, c = 0;
             for (Text val : values) {
                 String[] strs = val.toString().split(",");
                 if (2==strs.length) c++;
                 else c+=Integer.parseInt(strs[2]);
-                x += Integer.parseInt(strs[0]);
-                y += Integer.parseInt(strs[1]);
+                x += Double.parseDouble(strs[0]);
+                y += Double.parseDouble(strs[1]);
             }
-            String converged, curr = Double.toString(x / c) + "," + Double.toString(y / c);
+            Double newX=x / c, newY=y / c;
+            String curr = Double.toString(newX) + "," + Double.toString(newY);
+            double prevX = Double.parseDouble(key.toString().split(",")[1]);
+            double prevY = Double.parseDouble(key.toString().split(",")[2]);
+            isconverge &= dist(prevX,newX,prevY,newY)<0.01;
             context.write(new Text(curr),new Text());
-            if (key.toString().equals(curr)) converged = "Y";
-            else converged = "N";
-            context.getConfiguration().set("converged", converged);
+        }
+        public void cleanup(Context context) throws IOException {
+            if (isconverge) FileSystem.get(context.getConfiguration()).create(new Path(
+                    new Path(context.getConfiguration().get("out")).getParent().toString()+flag));
+        }
+    }
+
+    public static class Combiner extends Reducer<Text, Text, Text, Text> {
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            double x = 0, y = 0;
+            int c = 0;
+            for (Text val : values) {
+                String[] strs = val.toString().split(",");
+                c++;
+                x += Double.parseDouble(strs[0]);
+                y += Double.parseDouble(strs[1]);
+            }
+            String comb_res = Double.toString(x) + "," + Double.toString(y) + "," + Integer.toString(c);
+            context.write(key, new Text(comb_res));
         }
     }
 }
