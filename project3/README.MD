@@ -29,5 +29,17 @@ Command:
 
 
 ### Q3 KMeans
+#### Data Input
+The data input are two files uploaded on the hdfs. One file is stored points to be clusterd, the other is stored the
+initial cluster centers. Both two files will be loaded into mappers, where points are loaded through FileInputFormat and centers are loaded through DistributedCache. Similar to Map-Side-Join, since centers data are very small each mapper will receive one copy.
+#### Mapper
+Mapper's job here is to determine which center is the closest one for each point. Concretely, at the setup stage, all the centers will be loaded through distributed caches, find out the closest centers, and send the centers' index as the key and point itself as value.
+#### Reducer
+Reducer will re-compute the new representives.
+In the cleanup stage, it will check if centers are changed. If not, it will output a "_converged" file to indicate algorithm has converged.
+#### Combiner
+Combiner will keep the sum of coordinates and count the points for reduce stage.
+#### Stop Iteration Condition
+In the reducer, if each new center satisfys distance(new,old) < 0.01, then "_converged" file will be generated and main function will know it is time to stop the iterations.  
 Command:
 >hadoop jar ./Q3.jar Q3 input/KMPoints.txt input/seeds.txt out/Q3/iter out/Q3/final_index
