@@ -58,6 +58,7 @@ public class MyKMeans {
     }
 
     public static boolean isConverge(String output, int iter) throws IOException {
+        // if the flag of all the centroids are converged true, then stop
         boolean converge = false;
         int notConvergeNum = 0;
         if(iter >0) {
@@ -92,13 +93,13 @@ public class MyKMeans {
     public static boolean startNewJob(String input, String init, String output, int iter) throws URISyntaxException, IOException, ClassNotFoundException, InterruptedException {
         Configuration conf = new Configuration();
 
-        if(iter > 1){
+        if(iter > 1){ // delete except the last two output data
             String delPath = output + (iter-2);
             FileSystem fs = FileSystem.get(conf);
             fs.delete(new Path(delPath),true);
         }
 
-        String centers = output + (iter-1);
+        String centers = output + (iter-1); //using last output as the input of next iteration
 
         if(iter == 0){
             DistributedCache.addCacheFile(new URI(init),conf);
