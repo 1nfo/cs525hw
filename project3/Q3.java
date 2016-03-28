@@ -23,7 +23,6 @@ public class Q3  {
     public static int configJob(String jobName, String inpath, String seed, String outpath, int step)
             throws IOException, ClassNotFoundException, InterruptedException, URISyntaxException {
         Configuration conf = new Configuration();
-        conf.set("out",outpath);
         if (step==1) DistributedCache.addCacheFile(new URI(seed), conf);
         else {
             FileStatus[] statuses = FileSystem.get(conf).listStatus(new Path(seed));
@@ -35,7 +34,10 @@ public class Q3  {
             }
         }
         int reducerN = 1;
-        if (step==-1) reducerN=0;//last step map-only
+        if (step==-1) {
+            reducerN=0;//last step map-only
+            conf.setBoolean("last",true);
+        }
         Job job = new Job(conf, jobName);
         job.setJarByClass(Q3.class);
         job.setMapperClass(KMeansMapper.class);
@@ -60,12 +62,12 @@ public class Q3  {
     }
 
     public static double dist(double xs, double x, double ys, double y) {
-        return Math.sqrt(Math.pow(xs - x, 2) + Math.pow(ys - y, 2));
+        return Math.pow(xs - x, 2) + Math.pow(ys - y, 2);
     }
 
     public static int run(String[] args) throws Exception {
-        int i, step, status=0,maxiter=6;
-        String seeds="";
+        int i, step, status, maxiter=6;
+        String seeds;
         final String points = args[0], outseeds = args[2];
         String last = "";
         for (i = 1; i < maxiter + 1; i++) {
@@ -89,6 +91,7 @@ public class Q3  {
 
     public static class KMeansMapper extends Mapper<Object, Text, Text, Text> {
         private ArrayList<Double> Xs = new ArrayList<>(), Ys = new ArrayList<>();
+        private static boolean last=false;
         public void setup(Context context) throws IOException {
             Path[] caches = DistributedCache.getLocalCacheFiles(context.getConfiguration());
             for (Path cache : caches) {
@@ -101,6 +104,8 @@ public class Q3  {
                     Ys.add(Double.parseDouble(strs[1]));
                 }
             }
+            //if converged mappers do not print 1 at the end of value
+            last=context.getConfiguration().getBoolean("last",false);
         }
         public void map(Object k, Text value, Context context) throws IOException, InterruptedException {
             String[] strs = value.toString().split(",");
@@ -113,8 +118,9 @@ public class Q3  {
                     mindist = newdist;
                 }
             }
-            context.write(new Text(Integer.toString(minI)+","
-                    +Double.toString(Xs.get(minI))+","+Double.toString(Ys.get(minI))), value);
+            if (last) context.write(new Text(Integer.toString(minI)),value);
+            else context.write(new Text(Integer.toString(minI)+"," +Double.toString(Xs.get(minI))+","
+                    +Double.toString(Ys.get(minI))), new Text(value.toString()+",1"));
         }
     }
 
@@ -149,7 +155,7 @@ public class Q3  {
             int c = 0;
             for (Text val : values) {
                 String[] strs = val.toString().split(",");
-                c++;
+                c+=Integer.parseInt(strs[2]);
                 x += Double.parseDouble(strs[0]);
                 y += Double.parseDouble(strs[1]);
             }
