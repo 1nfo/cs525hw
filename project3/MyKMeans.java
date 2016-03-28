@@ -222,7 +222,7 @@ public class MyKMeans {
                 String[] point = value.toString().split(",");
                 x += Double.parseDouble(point[0]);
                 y += Double.parseDouble(point[1]);
-                count += 1;
+                count += Double.parseDouble(point[2]);
             }
             String outString = Double.toString(x) + "," + Double.toString(y) + "," + count;
             context.write(key, new Text(outString));
