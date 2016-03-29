@@ -87,6 +87,10 @@ class CustomInputFormat extends FileInputFormat<LongWritable,Text> {
     public RecordReader<LongWritable, Text> createRecordReader(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) throws IOException, InterruptedException {
         return new CustomRecordReader();
     }
+    @Override
+    public boolean isSplitable(JobContext context, Path filename) {
+        return false;
+    }
 }
 public class Q2 {
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
