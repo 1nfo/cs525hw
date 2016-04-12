@@ -307,7 +307,7 @@
 	db.test.find({"awards.award":"Turing Award","awards.year":{$gt:1976}})  
 5) Report all documents of people who got less than 3 awards or have contribution in “FP” 
  
-	db.test.find({$or:[{"contribs":"FP"},{"awards.3":{$exists:true}}]})  
+	db.test.find({$or:[{"contribs":"FP"},{"awards.3":{$exists:false}}]})  
 6) Report the contributions of “Dennis Ritchie” (only report the name and the contribution array)
 	
 	db.test.find(	
@@ -347,39 +347,39 @@
 
 	db.test.find({"name.first":{$regex:"Jo*"}}).sort({"name:last":1})11) Report the distinct organization that gave awards. This information can be found in the “by” field inside the “awards” array. The output should be an array of the distinct values, e.g., [“wpi’, “acm’, ...]
 
-	var tmp = db.test.find({"awards.by":{$exists:true}},{"awards.by":1,"_id":0})
-	var bys={}
-	while (tmp.hasNext()){
-		var tmp2=tmp.next();
-		for (var i=0;i<tmp2.awards.length;i++){
-			var by =(tmp2.awards[i].by);
-			bys[by]=1;
-		}
-	}
-	Object.keys(bys)12) Delete from all documents the “death” field.
+	db.test.distinct("awards.by")12) Delete from all documents the “death” field.
 
 	db.test.update({},{$unset:{"death":""}},{multi:true})13) Delete from all documents any award given on 2011.
 
 	db.test.remove({"awards.year":2011})14) Update the award of document _id =30, which is given by WPI, and set the year to 1965.
 
-	db.test.update({"_id":30},{$push:{"awards":{"year":1965,"by":"WPI"}}})15) Add (copy) all the contributions of document _id = 3 to that of document _id = 30
+	db.test.update({_id:30, "awards.by":"WPI"},{$set:{"awards.$.year":1965}});15) Add (copy) all the contributions of document _id = 3 to that of document _id = 30
 
-	tmp = db.test.findOne({"_id":3},{"awards":1,"_id":0}).awards
-	db.test.update({"_id":30},{$pushAll:{"awards":tmp}})16) Report only the names (first and last) of those individuals who won at least two awards in 2001.
+	var tmp = db.test.findOne({"_id":3},{"awards":1,"_id":0}).awards
+	db.test.update({_id:30}, {$addToSet:{"contribs":{$each: tmp.contribs}}});16) Report only the names (first and last) of those individuals who won at least two awards in 2001.
 
-	db.test.find({"awards.1":{$exists:true}},{"name":1,"_id":0})17) Report the document with the largest id. First, you need to find the largest _id (using a CRUD statement), and then use that to report the corresponding document.
+	db.test.find({"awards.year":2001}).forEach(function(p){
+  		count = 0;
+  		for(i=0;i<p.awards.length;i++){
+    		if(p.awards[i].year == 2001) count++;
+  		}
+  		if(count>1)
+    		print(p.name.first + "," + p.name.last);
+		})17) Report the document with the largest id. First, you need to find the largest _id (using a CRUD statement), and then use that to report the corresponding document.
 
 	var tmp = db.test.find({},{"_id":1})
 	var max=0
 	while (tmp.hasNext()){
-		tmp2=tmp.next()
-		if (max<tmp2._id) max=tmp2._id
+    	tmp2=tmp.next()
+    	if (max<tmp2._id) max=tmp2._id
 	}
-	db.test.find({"_id":max})18) Report only one document where one of the awards is given by “ACM”.
+	db.test.find({"_id":max})
+Or:
+
+	db.test.find().sort({_id:-1}).limit(1).pretty()18) Report only one document where one of the awards is given by “ACM”.
 
 	db.test.findOne({"awards.by":"ACM"})19) Delete the documents inserted in Q3, i.e., _id = 20 and 30.
 
 	db.test.remove({"_id":{$in:[20,30]}})20) Report the number of documents in the collection.
 
-	var tmp = db.test.find()
-	tmp.length()
+	db.test.find().size()
