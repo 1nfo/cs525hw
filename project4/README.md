@@ -275,8 +275,8 @@
 
 2) Write a CRUD operation that updates the _id of “John McCarthy” to value 2.   
  
-	tmp=db.test.findOne({"name.last":"McCarthy","name.first":"John"})  
-	deleteKey=tmp._id  
+	var tmp = db.test.findOne({"name.last":"McCarthy","name.first":"John"})  
+	var deleteKey=tmp._id  
 	tmp._id=2  
 	db.test.insert(tmp)  
 	db.test.remove({"_id":deleteKey})  
@@ -367,8 +367,19 @@
 	tmp = db.test.findOne({"_id":3},{"awards":1,"_id":0}).awards
 	db.test.update({"_id":30},{$pushAll:{"awards":tmp}})16) Report only the names (first and last) of those individuals who won at least two awards in 2001.
 
-	17) Report the document with the largest id. First, you need to find the largest _id (using a CRUD statement), and then use that to report the corresponding document.
-18) Report only one document where one of the awards is given by “ACM”.
-19) Delete the documents inserted in Q3, i.e., _id = 20 and 30.
-20) Report the number of documents in the collection.
+	db.test.find({"awards.1":{$exists:true}},{"name":1,"_id":0})17) Report the document with the largest id. First, you need to find the largest _id (using a CRUD statement), and then use that to report the corresponding document.
 
+	var tmp = db.test.find({},{"_id":1})
+	var max=0
+	while (tmp.hasNext()){
+		tmp2=tmp.next()
+		if (max<tmp2._id) max=tmp2._id
+	}
+	db.test.find({"_id":max})18) Report only one document where one of the awards is given by “ACM”.
+
+	db.test.findOne({"awards.by":"ACM"})19) Delete the documents inserted in Q3, i.e., _id = 20 and 30.
+
+	db.test.remove({"_id":{$in:[20,30]}})20) Report the number of documents in the collection.
+
+	var tmp = db.test.find()
+	tmp.length()
