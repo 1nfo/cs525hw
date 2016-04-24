@@ -1,4 +1,8 @@
 ## MongoDB Project
+
+Shile Zhao,
+Qian Wang
+
 1) Create a collection named “test”, and insert into this collection the documents found in this [link](http://docs.mongodb.org/manual/reference/bios-example-collection/) (10 documents)
 
 	db.test.insert([{
