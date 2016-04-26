@@ -49,3 +49,43 @@
 5. .
 
 		db.tree2.findOne({"children":"Databases"}).children.pop("Database")
+		
+6. .
+
+		db.test.mapReduce(
+			function(){
+				if (this.awards){
+					for (var i=0;i<this.awards.length;i++){
+						emit(this.awards[i].award,1);
+					}
+				}
+			},
+			function(key,values){
+					return Array.sum(values)
+			},
+			{out:"Q6"}
+		)
+		db.Q6.find()
+		
+7. .
+		
+		db.test.aggregate([ {$match:{}}, 
+								{$group: {_id: 
+												{$cond:[{$ifNull:["$birth",0]}, 
+												        {$year:"$birth"}, 
+												        -1]},
+											ids:{$push:"$_id"}
+										}}])
+										
+8. .
+
+		db.test.aggregate([{$match:{}},{$group:{_id:0,max:{$max:"$_id"},min:{$min:"$_id"}}}])
+		
+9. .
+
+		db.test.createIndex( { "$**": "text" } )
+		db.test.find({$text:{$search:"\"Turing award\""}})
+		
+10. .  
+
+		db.test.find( {$text:{$search:"Turing National \"Medal\""}})
