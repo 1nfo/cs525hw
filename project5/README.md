@@ -88,4 +88,11 @@
 		
 10. .  
 
-		db.test.find( {$text:{$search:"Turing National \"Medal\""}})
+		function exclude(arr,obj) {return (arr.indexOf(obj) < 0);}
+		var a = db.test.find( {$text:{$search:"Turing"}})
+		var b = db.test.find( {$text:{$search:"\"National Medal\""}})
+		res = []
+		key= []
+		while (a.hasNext()){t = a.next();res.push(t);key.push(t._id.valueOf());}
+		while (b.hasNext()){t = b.next();if (exclude(key,t._id.valueOf())) res.push(t);}
+		res
